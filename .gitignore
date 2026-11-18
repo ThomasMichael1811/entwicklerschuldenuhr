@@ -1,0 +1,6 @@
+# Agenten-Konfiguration und lokale Werkzeuge, nicht öffentlich
+AGENTS.md
+docs/agents/
+.scratch/
+.claude/
+.vscode/
