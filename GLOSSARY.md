@@ -20,10 +20,6 @@ _Avoid_: Gehalt, Tagessatz
 Die Summe aus Stundensatz mal Dauer über alle Teilnehmer.
 _Avoid_: Gesamtkosten, Schulden
 
-**Pflegeansicht**:
-Die Ansicht zum Importieren und Prüfen der Personen mit ihren Stundensätzen, nur für den Besitzer gedacht.
-_Avoid_: Admin, Einstellungen
-
 **Meeting-Ansicht**:
-Die Ansicht, die im Meeting sichtbar ist und nur die Meetingkosten zeigt, nie einzelne Stundensätze.
-_Avoid_: Popup, Dashboard
+Die einzige Ansicht: CSV laden, Teilnehmer wählen, Dauer eingeben. Sie zeigt nur die Meetingkosten, nie einzelne Stundensätze. Die Personen werden ausschließlich manuell in der CSV gepflegt.
+_Avoid_: Popup, Dashboard, Pflegeansicht
