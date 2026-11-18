@@ -12,7 +12,7 @@
   h1 { font-size: 1.3rem; margin: 0 0 .5rem; }
   h2 { font-size: 1rem; margin: .8rem 0 .3rem; }
   .quick button { margin-right: .3rem; }
-  #calc { font-size: 1.1rem; padding: .5rem 1rem; margin-top: .5rem; }
+  #calc, #start { font-size: 1.1rem; padding: .5rem 1rem; margin-top: .5rem; }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -35,6 +35,7 @@
     <button data-min="5">5</button><button data-min="10">10</button><button data-min="15">15</button><button data-min="30">30</button><button data-min="60">60</button>
   </p>
   <button id="calc">Kosten anzeigen</button>
+  <button id="start">Start (live)</button>
 </section>
 
 
@@ -113,9 +114,40 @@ $('file').onchange = async e => {
 
 document.querySelectorAll('.quick button').forEach(b => b.onclick = () => $('minutes').value = b.dataset.min);
 
+const selected = () => [...$('participants').querySelectorAll('input:checked')].map(i => persons[i.value]);
+
+$('start').onclick = () => {
+  const chosen = selected();
+  if (!chosen.length) { alert('Bitte Teilnehmer wählen.'); return; }
+  const centsPerHour = chosen.reduce((s, p) => s + p.cents, 0);
+  const win = window.open('', 'live', 'popup,width=700,height=400');
+  if (!win) { alert('Das Fenster wurde vom Browser blockiert. Bitte Pop-ups für diese Seite erlauben.'); return; }
+  win.document.open();
+  win.document.write(`<!doctype html><html lang="de"><meta charset="utf-8"><title>Meeting läuft</title>
+<body style="margin:0;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:system-ui,sans-serif">
+<div id="sum" style="font-size:min(20vw,28vh);font-weight:bold;line-height:1"></div>
+<div id="info" style="font-size:min(4vw,6vh);margin-top:.5em"></div>
+<button id="stop" style="font-size:1.1rem;margin-top:1em;padding:.4rem 1rem">Stopp</button>
+<script>
+const rate = ${centsPerHour}, n = ${chosen.length}, t0 = Date.now();
+const fmt = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' });
+let timer;
+function tick() {
+  const sec = Math.floor((Date.now() - t0) / 1000);
+  document.getElementById('sum').textContent = fmt.format(Math.round(rate * sec / 3600) / 100);
+  const mm = String(Math.floor(sec / 60)).padStart(2, '0'), ss = String(sec % 60).padStart(2, '0');
+  document.getElementById('info').textContent = n + ' Teilnehmer, ' + mm + ':' + ss;
+}
+tick(); timer = setInterval(tick, 1000);
+document.getElementById('stop').onclick = () => { tick(); clearInterval(timer); document.getElementById('stop').remove(); };
+<\/script></body></html>`);
+  win.document.close();
+  win.focus();
+};
+
 $('calc').onclick = () => {
   const minutes = parseFloat($('minutes').value);
-  const chosen = [...$('participants').querySelectorAll('input:checked')].map(i => persons[i.value]);
+  const chosen = selected();
   if (!chosen.length || !(minutes > 0)) { alert('Bitte Teilnehmer wählen und eine Dauer größer 0 eingeben.'); return; }
   const centsPerHour = chosen.reduce((s, p) => s + p.cents, 0);
   const total = Math.round(centsPerHour * minutes / 60);
