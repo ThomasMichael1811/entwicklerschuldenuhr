@@ -153,6 +153,7 @@ $('file').onchange = async e => {
   const text = decode(await file.arrayBuffer());
   try { localStorage.setItem(STORAGE_KEY, text); } catch {}
   load(text);
+  if (!$('errors').children.length && persons.length) show('meeting');
   e.target.value = '';
 };
 
