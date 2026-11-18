@@ -41,3 +41,7 @@ Cem Beispiel;85,50
 ## Begriffe
 
 Siehe `GLOSSARY.md`.
+
+## Lizenz
+
+Open Source unter der [MIT-Lizenz](LICENSE): Jeder darf die Software nutzen, ändern und weitergeben.
