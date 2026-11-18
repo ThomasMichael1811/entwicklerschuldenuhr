@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Entwicklerschuldenuhr</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; }
+  nav button { padding: .5rem 1rem; margin-right: .5rem; }
+  nav button[aria-pressed="true"] { font-weight: bold; text-decoration: underline; }
+  table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+  td, th { border-bottom: 1px solid #ccc; padding: .3rem .5rem; text-align: left; }
+  td.rate, th.rate { text-align: right; }
+  .errors { color: #b00020; }
+  label.person { display: block; padding: .25rem 0; }
+  .quick button { margin-right: .3rem; }
+  #calc { font-size: 1.2rem; padding: .6rem 1.2rem; margin-top: 1rem; }
+  dialog { border: none; border-radius: 1rem; padding: 3rem 4rem; text-align: center; }
+  dialog::backdrop { background: rgba(0,0,0,.7); }
+  #sum { font-size: 6rem; font-weight: bold; margin: 0 0 1rem; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<h1>Entwicklerschuldenuhr</h1>
+<nav>
+  <button id="tab-meeting" aria-pressed="true">Meeting</button>
+  <button id="tab-care" aria-pressed="false">Pflege</button>
+</nav>
+
+<!-- Meeting-Ansicht: zeigt nie einzelne Stundensätze -->
+<section id="meeting">
+  <h2>Teilnehmer</h2>
+  <div id="participants"></div>
+  <p id="meeting-empty" hidden>Noch keine Personen geladen. Bitte in der Pflege eine CSV wählen.</p>
+  <h2>Dauer</h2>
+  <p>
+    <input id="minutes" type="number" min="1" step="1" value="10"> Minuten
+  </p>
+  <p class="quick">
+    <button data-min="5">5</button><button data-min="10">10</button><button data-min="15">15</button><button data-min="30">30</button><button data-min="60">60</button>
+  </p>
+  <button id="calc">Kosten anzeigen</button>
+</section>
+
+<!-- Pflegeansicht: nur für den Besitzer -->
+<section id="care" hidden>
+  <h2>Personen laden</h2>
+  <p>CSV mit Kopfzeile <code>Name;Stundensatz</code> (Trennzeichen <code>;</code> oder <code>,</code>, Dezimalkomma erlaubt).</p>
+  <input id="file" type="file" accept=".csv,text/csv,text/plain">
+  <p><button id="clear">Geladene Personen löschen</button></p>
+  <div id="errors" class="errors"></div>
+  <table id="table" hidden>
+    <thead><tr><th>Name</th><th class="rate">Stundensatz</th></tr></thead>
+    <tbody></tbody>
+  </table>
+</section>
+
+<dialog id="popup">
+  <p id="sum"></p>
+  <p id="detail"></p>
+  <button id="close" autofocus>Schließen</button>
+</dialog>
+
+<script>
+const STORAGE_KEY = 'entwicklerschuldenuhr.csv';
+const euro = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' });
+const $ = id => document.getElementById(id);
+
+let persons = []; // { name, cents }
+
+// --- CSV -------------------------------------------------------------------
+
+function decode(buffer) {
+  try { return new TextDecoder('utf-8', { fatal: true }).decode(buffer); }
+  catch { return new TextDecoder('windows-1252').decode(buffer); }
+}
+
+function parseRate(text) {
+  const t = text.replace(/[€\s]/g, '').replace(',', '.');
+  return /^\d+(\.\d+)?$/.test(t) ? Math.round(parseFloat(t) * 100) : null;
+}
+
+function parseCsv(text) {
+  const lines = text.replace(/^﻿/, '').split(/\r?\n/);
+  const first = lines.find(l => l.trim());
+  const delimiter = first && first.includes(';') ? ';' : ',';
+  const people = [], errors = [];
+  let headerSeen = false;
+  lines.forEach((line, i) => {
+    if (!line.trim()) return;
+    const [name = '', rate = ''] = line.split(delimiter).map(s => s.trim().replace(/^"|"$/g, ''));
+    if (!headerSeen) {
+      headerSeen = true;
+      if (parseRate(rate) === null) return; // Kopfzeile
+    }
+    const cents = parseRate(rate);
+    if (!name || cents === null) errors.push(`Zeile ${i + 1}: "${line}" ist ungültig (erwartet: Name${delimiter}Stundensatz)`);
+    else people.push({ name, cents });
+  });
+  return { people, errors };
+}
+
+function load(text) {
+  const { people, errors } = parseCsv(text);
+  persons = people;
+  $('errors').innerHTML = '';
+  errors.forEach(e => { const p = document.createElement('p'); p.textContent = e; $('errors').append(p); });
+  renderCare();
+  renderParticipants();
+}
+
+// --- Rendering -------------------------------------------------------------
+
+function renderCare() {
+  const body = $('table').querySelector('tbody');
+  body.innerHTML = '';
+  persons.forEach(p => {
+    const tr = document.createElement('tr');
+    const n = document.createElement('td'); n.textContent = p.name;
+    const r = document.createElement('td'); r.className = 'rate'; r.textContent = euro.format(p.cents / 100);
+    tr.append(n, r); body.append(tr);
+  });
+  $('table').hidden = persons.length === 0;
+}
+
+function renderParticipants() {
+  const box = $('participants');
+  const checked = new Set([...box.querySelectorAll('input:checked')].map(i => i.value));
+  box.innerHTML = '';
+  persons.forEach((p, i) => {
+    const label = document.createElement('label'); label.className = 'person';
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.value = i; cb.checked = checked.has(String(i));
+    label.append(cb, ' ', p.name); box.append(label);
+  });
+  $('meeting-empty').hidden = persons.length > 0;
+}
+
+// --- Events ----------------------------------------------------------------
+
+function show(view) {
+  $('meeting').hidden = view !== 'meeting';
+  $('care').hidden = view !== 'care';
+  $('tab-meeting').setAttribute('aria-pressed', view === 'meeting');
+  $('tab-care').setAttribute('aria-pressed', view === 'care');
+}
+$('tab-meeting').onclick = () => show('meeting');
+$('tab-care').onclick = () => show('care');
+
+$('file').onchange = async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const text = decode(await file.arrayBuffer());
+  try { localStorage.setItem(STORAGE_KEY, text); } catch {}
+  load(text);
+  e.target.value = '';
+};
+
+$('clear').onclick = () => {
+  try { localStorage.removeItem(STORAGE_KEY); } catch {}
+  load('');
+};
+
+document.querySelectorAll('.quick button').forEach(b => b.onclick = () => $('minutes').value = b.dataset.min);
+
+$('calc').onclick = () => {
+  const minutes = parseFloat($('minutes').value);
+  const chosen = [...$('participants').querySelectorAll('input:checked')].map(i => persons[i.value]);
+  if (!chosen.length || !(minutes > 0)) { alert('Bitte Teilnehmer wählen und eine Dauer größer 0 eingeben.'); return; }
+  const centsPerHour = chosen.reduce((s, p) => s + p.cents, 0);
+  const total = Math.round(centsPerHour * minutes / 60);
+  $('sum').textContent = euro.format(total / 100);
+  $('detail').textContent = `${chosen.length} Teilnehmer, ${minutes} Minuten`;
+  $('popup').showModal();
+};
+$('close').onclick = () => $('popup').close();
+
+try { const saved = localStorage.getItem(STORAGE_KEY); if (saved) load(saved); } catch {}
+renderParticipants();
+</script>
+</body>
+</html>
