@@ -5,14 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Entwicklerschuldenuhr</title>
 <style>
-  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 2rem auto; padding: 0 1rem; }
+  body { font-family: system-ui, sans-serif; max-width: 420px; margin: 1rem auto; padding: 0 1rem; }
   .errors { color: #b00020; }
-  label.person { display: block; padding: .25rem 0; }
+  #participants { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1rem; }
+  label.person { padding: .1rem 0; }
+  h1 { font-size: 1.3rem; margin: 0 0 .5rem; }
+  h2 { font-size: 1rem; margin: .8rem 0 .3rem; }
   .quick button { margin-right: .3rem; }
-  #calc { font-size: 1.2rem; padding: .6rem 1.2rem; margin-top: 1rem; }
-  dialog { border: none; border-radius: 1rem; padding: 3rem 4rem; text-align: center; }
-  dialog::backdrop { background: rgba(0,0,0,.7); }
-  #sum { font-size: 6rem; font-weight: bold; margin: 0 0 1rem; }
+  #calc { font-size: 1.1rem; padding: .5rem 1rem; margin-top: .5rem; }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -38,11 +38,6 @@
 </section>
 
 
-<dialog id="popup">
-  <p id="sum"></p>
-  <p id="detail"></p>
-  <button id="close" autofocus>Schließen</button>
-</dialog>
 
 <script>
 const STORAGE_KEY = 'entwicklerschuldenuhr.csv';
@@ -124,11 +119,17 @@ $('calc').onclick = () => {
   if (!chosen.length || !(minutes > 0)) { alert('Bitte Teilnehmer wählen und eine Dauer größer 0 eingeben.'); return; }
   const centsPerHour = chosen.reduce((s, p) => s + p.cents, 0);
   const total = Math.round(centsPerHour * minutes / 60);
-  $('sum').textContent = euro.format(total / 100);
-  $('detail').textContent = `${chosen.length} Teilnehmer, ${minutes} Minuten`;
-  $('popup').showModal();
+  const sum = euro.format(total / 100);
+  const win = window.open('', 'kosten', 'popup,width=700,height=350');
+  if (!win) { alert('Das Fenster wurde vom Browser blockiert. Bitte Pop-ups für diese Seite erlauben.'); return; }
+  win.document.open();
+  win.document.write(`<!doctype html><html lang="de"><meta charset="utf-8"><title>Meetingkosten</title>
+<body style="margin:0;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:system-ui,sans-serif">
+<div style="font-size:min(22vw,30vh);font-weight:bold;line-height:1">${sum}</div>
+<div style="font-size:min(4vw,6vh);margin-top:.5em">${chosen.length} Teilnehmer, ${minutes} Minuten</div></body></html>`);
+  win.document.close();
+  win.focus();
 };
-$('close').onclick = () => $('popup').close();
 
 try { const saved = localStorage.getItem(STORAGE_KEY); if (saved) load(saved); } catch {}
 renderParticipants();
